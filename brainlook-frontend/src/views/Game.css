@@ -1,0 +1,25 @@
+/* Game.css */
+.game-container {
+    display: flex;
+    justify-content: space-around;
+    padding: 20px;
+}
+
+.game-left-pane, .game-right-pane {
+    flex: 1;
+}
+
+.game-input {
+    margin-top: 10px;
+}
+
+.game-clue {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}
+
+.game-button {
+    padding: 5px 10px;
+    margin-top: 10px;
+    cursor: pointer;
+}

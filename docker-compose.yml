@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./brainlook-frontend
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=development
+        - FAST_REFRESH=false
+        - CHOKIDAR_USEPOLLING=true
+    ports:
+      - "3000:3000"
+    # volumes:
+      # - ./brainlook-frontend:/app
+      # - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./brainlook-backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"

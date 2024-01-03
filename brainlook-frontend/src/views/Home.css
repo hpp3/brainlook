@@ -1,0 +1,16 @@
+/* Home.css */
+.home-container {
+    text-align: center;
+    padding: 50px;
+}
+
+.home-title {
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+.create-room-button {
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+}
