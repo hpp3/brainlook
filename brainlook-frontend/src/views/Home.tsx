@@ -3,8 +3,8 @@ import Modal from '../components/Modal';
 import ClipboardButton from '../components/ClipboardButton';
 import './Home.css';
 
-const BACKEND_HOST = "http://localhost:8080";
-const FRONTEND_HOST = "http://localhost:3000";
+const BACKEND_HOST = `${process.env.REACT_APP_USE_HTTPS}://${process.env.REACT_APP_BACKEND_HOST}`;
+const FRONTEND_HOST = `${process.env.REACT_APP_USE_HTTPS}://${process.env.REACT_APP_FRONTEND_HOST}`;
 
 const Home: React.FC = () => {
     const [isModalOpen, setModalOpen] = useState(false);
@@ -13,7 +13,7 @@ const Home: React.FC = () => {
 
     const handleCreateRoom = async () => {
         try {
-            const response = await fetch(BACKEND_HOST + '/api/create-room', {
+            const response = await fetch(`${BACKEND_HOST}/api/create-room`, {
                 method: 'POST',
             });
 
@@ -36,7 +36,7 @@ const Home: React.FC = () => {
 
             <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)}>
                 <p>Share this link with your friends:</p>
-                <p><a href={FRONTEND_HOST+"/game/"+roomCode}>{FRONTEND_HOST}/game/{roomCode}</a></p>
+                <p><a href={`${FRONTEND_HOST}/game/${roomCode}`}>{`${FRONTEND_HOST}/game/${roomCode}`}</a></p>
                 <ClipboardButton text={`${FRONTEND_HOST}/game/${roomCode}`} />
             </Modal>
             <Modal isOpen={isErrorModalOpen} onClose={() => setErrorModalOpen(false)}>

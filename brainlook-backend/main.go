@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -13,12 +14,30 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const FRONTEND_HOST = "http://localhost:3000"
+func readConfig(filename string) map[string]string {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil
+	}
+
+	lines := strings.Split(string(content), "\n")
+	config := make(map[string]string)
+	for _, line := range lines {
+		if parts := strings.SplitN(line, "=", 2); len(parts) == 2 {
+			config[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+	return config
+}
+
+var config = readConfig("../config.env")
+var FRONTEND_HOST = config["FRONTEND_HOST"]
+var BACKEND_HOST = config["BACKEND_HOST"]
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", FRONTEND_HOST)
+		w.Header().Set("Access-Control-Allow-Origin", "http://"+FRONTEND_HOST)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
