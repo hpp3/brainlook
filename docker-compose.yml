@@ -6,7 +6,7 @@ services:
       context: ./brainlook-frontend
       dockerfile: Dockerfile
       args:
-        - NODE_ENV=development
+        - NODE_ENV=production
         - FAST_REFRESH=false
         - CHOKIDAR_USEPOLLING=true
     ports:

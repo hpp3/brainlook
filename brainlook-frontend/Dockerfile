@@ -8,7 +8,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Install any needed packages
-RUN npm install
+RUN npm install --omit=dev
 
 # Bundle app source
 COPY . .
@@ -17,7 +17,9 @@ COPY . .
 EXPOSE 3000
 
 # Define environment variable
-ENV NODE_ENV=development
+ENV NODE_ENV=production
+RUN npm run build
+RUN npm install -g serve
 
 # Run npm start when the container launches
-CMD ["npm", "start"]
+CMD ["serve", "-s", "build"]
