@@ -55,7 +55,7 @@ const GuessLog: React.FC<GuessLogProps> = ({guesses}) => {
 
 
 const BACKEND_HOST = `${process.env.REACT_APP_USE_HTTPS}://${process.env.REACT_APP_BACKEND_HOST}`;
-const WS_HOST = `ws://${process.env.REACT_APP_BACKEND_HOST}`;
+const WS_HOST = `${process.env.REACT_APP_USE_WSS}://${process.env.REACT_APP_BACKEND_HOST}`;
 const Game: React.FC = () => {
     const [playerName, setPlayerName] = useState('');
     const [isNameModalOpen, setNameModalOpen] = useState(true);
