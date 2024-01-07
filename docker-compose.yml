@@ -9,11 +9,9 @@ services:
         - NODE_ENV=production
         - FAST_REFRESH=false
         - CHOKIDAR_USEPOLLING=true
+    image: ewgao/brainlook:frontend
     ports:
       - "3000:3000"
-    # volumes:
-      # - ./brainlook-frontend:/app
-      # - /app/node_modules
     environment:
       - REACT_APP_API_URL=http://localhost:8080
     depends_on:
@@ -23,5 +21,8 @@ services:
     build:
       context: ./brainlook-backend
       dockerfile: Dockerfile
+    image: ewgao/brainlook:backend
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
     ports:
       - "8080:8080"

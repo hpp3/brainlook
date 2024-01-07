@@ -114,9 +114,12 @@ func main() {
 	r.HandleFunc("/ws/{room-code}/{player-name}", handleWebSocket)
 	r.HandleFunc("/api/join-room/{room-code}", joinRoomHandler)
 	http.Handle("/", r)
+	err := http.ListenAndServeTLS(":8080", "/etc/letsencrypt/live/brainlook.hpp3.com/fullchain.pem", "/etc/letsencrypt/live/brainlook.hpp3.com/privkey.pem", r)
+	if err != nil {
+		log.Fatalf("Could not start server: %s", err)
+	}
 
-	log.Println("Server started on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("Server started on :8080!!!")
 }
 
 func generateUniqueRoomCode() string {
