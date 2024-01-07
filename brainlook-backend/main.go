@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -56,9 +55,10 @@ type WordClue struct {
 	Clue string
 }
 
-var wordList []WordClue
+var wordList map[int][]WordClue
 
 func loadWordList(filename string) {
+	wordList = make(map[int][]WordClue)
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("failed to open file: %s", err)
@@ -72,13 +72,37 @@ func loadWordList(filename string) {
 		if len(parts) == 2 {
 			word := parts[0]
 			clue := parts[1]
-			wordList = append(wordList, WordClue{Word: word, Clue: clue})
+			wordList[len(word)] = append(wordList[len(word)], WordClue{Word: word, Clue: clue})
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("failed to read from file: %s", err)
 	}
+}
+
+func RandomWord(minLength int, maxLength int) WordClue {
+	if maxLength < minLength {
+		minLength, maxLength = maxLength, minLength
+	}
+	if minLength < 3 {
+		minLength = 3
+	}
+	if maxLength > 21 {
+		maxLength = 21
+	}
+	total := 0
+	for x := minLength; x <= maxLength; x++ {
+		total += len(wordList[x])
+	}
+	chosen := rand.Intn(total)
+	for x := minLength; x <= maxLength; x++ {
+		if chosen < len(wordList[x]) {
+			return wordList[x][chosen]
+		}
+		chosen -= len(wordList[x])
+	}
+	return wordList[minLength][0]
 }
 
 func main() {
@@ -93,26 +117,6 @@ func main() {
 
 	log.Println("Server started on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func createRoom() *Room {
-	roomCode := generateUniqueRoomCode()
-	room := &Room{
-		Code:       roomCode,
-		State:      GameState{},
-		Players:    make(map[string]*Player),
-		actionChan: make(chan Action),
-		ticker:     *time.NewTicker(3 * time.Second),
-	}
-
-	roomsMux.Lock()
-	rooms[roomCode] = room
-	roomsMux.Unlock()
-	fmt.Println("created room: ", roomCode)
-
-	go room.gameLoop()
-
-	return room
 }
 
 func generateUniqueRoomCode() string {

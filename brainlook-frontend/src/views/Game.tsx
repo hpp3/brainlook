@@ -64,6 +64,9 @@ const Game: React.FC = () => {
     const { roomCode } = useParams();
     const [guessList, setGuessList] = useState<string[]>([]);
     const [wordClue, setWordClue] = useState<PlayAreaProps>({word:'', clue:''});
+    const [minLength, setMinLength] = useState(3);
+    const [maxLength, setMaxLength] = useState(21);
+    const [interval, setInterval] = useState(5);
     const wsRef = useRef<WebSocket | null>(null);
 
     // Additional state for clues, scores, etc.
@@ -79,9 +82,14 @@ const Game: React.FC = () => {
     const handleGuessSubmit = (e: FormEvent) => {
         e.preventDefault();
         setGuess('')
-        wsRef.current?.send(JSON.stringify({ 'guess': guess }));
+        wsRef.current?.send(JSON.stringify({'type': 'guess', 'guess': guess }));
         console.log('guessing ' + guess);
     };
+
+    const handleOptionsSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        wsRef.current?.send(JSON.stringify({'type': 'settings', 'settings':{'minLength': minLength, 'maxLength': maxLength, 'interval': interval}}));
+    }
 
     const handleNewPlayer = async (name: string) =>  {
         try {
@@ -98,17 +106,18 @@ const Game: React.FC = () => {
             });
             socket.addEventListener('message', (event) => {
                 const msg = JSON.parse(event.data);
+                console.log(msg);
                 switch (msg['type']) {
                     case 'scoreboard':
-                        console.log(msg);
                         setPlayers(msg['players']);
                         break;
                     case 'guess':
-                        console.log(msg);
                         guessList.push(`${msg.player} ${msg.correct ? 'correctly' : 'incorrectly'} guessed ${msg.guess}`);
                         break;
                     case 'word':
                         setWordClue({word: msg.displayed, clue: msg.clue});
+                        break;
+                    case 'settings':
                         break;
                     default:
                         throw new Error(`Unknown case ${msg['type']}`);
@@ -152,6 +161,18 @@ const Game: React.FC = () => {
                 </div>
                 <div className="game-right-pane">
                     <Scoreboard players={players} />
+                    <form onSubmit={handleOptionsSubmit}>
+                    <div>
+                    <label>Reveal Interval</label><input type="number" value={interval} min="1" max="30" onChange={e => setInterval(parseInt(e.target.value))} />
+                    </div>
+                    <div>
+                    <label>Minimum Word Length </label><input type="number" value={minLength} min="3" max="21" onChange={e => setMinLength(parseInt(e.target.value))} />
+                    </div>
+                    <div>
+                    <label>Maximum Word Length </label><input type="number" value={maxLength} min="3" max="21" onChange={e => setMaxLength(parseInt(e.target.value))} />
+                    </div>
+                    <input type="submit" value="Change Room Settings" />
+                    </form>
                 </div>
             </div>
         </div>

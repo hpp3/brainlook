@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -28,6 +27,7 @@ type Room struct {
 	Mutex      sync.RWMutex
 	actionChan chan Action
 	ticker     time.Ticker
+	Settings   Options
 }
 
 type Player struct {
@@ -40,6 +40,7 @@ type Action struct {
 	PlayerName string
 	Type       string
 	Content    string
+	Settings   Options
 }
 
 type ScoreboardUpdate struct {
@@ -63,10 +64,22 @@ type GuessUpdate struct {
 	Correct bool   `json:"correct"`
 }
 
-const (
-	actionGuess = "guess"
-	actionJoin  = "join"
-)
+type SettingsUpdate struct {
+	Type     string  `json:"type"`
+	Settings Options `json:"settings"`
+}
+
+type Options struct {
+	Interval  int `json:"interval"`
+	MinLength int `json:"minLength"`
+	MaxLength int `json:"maxLength"`
+}
+
+type Input struct {
+	Type     string  `json:"type"`
+	Guess    string  `json:"guess"`
+	Settings Options `json:"settings"`
+}
 
 func (state *GameState) revealMore() {
 	nextReveal := rand.Intn(state.unrevealed)
@@ -83,11 +96,12 @@ func (state *GameState) revealMore() {
 	}
 }
 
-func (state *GameState) reset() {
+func (r *Room) reset() {
+	state := &r.State
 	if len(wordList) == 0 {
 		log.Fatalf("wordList is empty")
 	}
-	state.CurrentWord = wordList[rand.Intn(len(wordList))]
+	state.CurrentWord = RandomWord(r.Settings.MinLength, r.Settings.MaxLength)
 	state.Displayed = make([]byte, len(state.CurrentWord.Word))
 	for i := range state.Displayed {
 		state.Displayed[i] = '_'
@@ -108,8 +122,18 @@ func (state *GameState) createWordUpdate() WordUpdate {
 	}
 }
 
+func stripNonAlpha(input string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) {
+			return r
+		} else {
+			return -1
+		}
+	}, input)
+}
+
 func (r *Room) gameLoop() {
-	r.State.reset()
+	r.reset()
 	for {
 		select {
 		case action, open := <-r.actionChan:
@@ -118,35 +142,34 @@ func (r *Room) gameLoop() {
 			}
 			switch action.Type {
 			case actionGuess:
-				guess := strings.Map(func(r rune) rune {
-					if unicode.IsLetter(r) {
-						return r
-					} else {
-						return -1
-					}
-				}, action.Content)
-				correct := strings.EqualFold(guess, r.State.CurrentWord.Word)
-				update, _ := json.Marshal(GuessUpdate{
+				correct := strings.EqualFold(stripNonAlpha(action.Content), stripNonAlpha(r.State.CurrentWord.Word))
+				r.broadcast(GuessUpdate{
 					Type:    "guess",
 					Guess:   action.Content,
 					Correct: correct,
 					Player:  action.PlayerName,
 				})
-				r.broadcast(update)
 				if correct {
 					r.Players[action.PlayerName].Score += (r.State.unrevealed + 1)
 					r.broadcastScoreboard()
-					r.State.reset()
-					r.ticker.Reset(5 * time.Second)
+					r.reset()
+					r.ticker.Reset(time.Duration(r.Settings.Interval) * time.Second)
 				}
 				r.broadcastWord()
 			case actionJoin:
 				if len(r.Players) == 1 {
-					r.ticker.Reset(5 * time.Second)
+					r.ticker.Reset(time.Duration(r.Settings.Interval) * time.Second)
 				}
-				r.ticker.Reset(5 * time.Second)
 				r.Players[action.PlayerName].Conn.WriteJSON(r.State.createWordUpdate())
 				r.broadcastScoreboard()
+			case actionSettings:
+				r.Settings = action.Settings
+				r.ticker = *time.NewTicker(time.Duration(r.Settings.Interval) * time.Second)
+				log.Printf("changing tick interval to %d", r.Settings.Interval)
+				r.broadcast(SettingsUpdate{
+					Type:     "settings",
+					Settings: r.Settings,
+				})
 			default:
 				log.Printf("Unknown action type: %s", action.Type)
 			}
@@ -161,12 +184,12 @@ func (r *Room) gameLoop() {
 	}
 }
 
-func (r *Room) broadcast(event []byte) {
+func (r *Room) broadcast(v interface{}) {
 	r.Mutex.RLock()
 	defer r.Mutex.RUnlock()
 
 	for _, player := range r.Players {
-		player.Conn.WriteMessage(websocket.TextMessage, event)
+		player.Conn.WriteJSON(v)
 	}
 }
 
@@ -181,17 +204,14 @@ func (r *Room) broadcastScoreboard() {
 			Score int    `json:"score"`
 		}{player.Name, player.Score})
 	}
-	update, _ := json.Marshal(ScoreboardUpdate{
+	r.broadcast(ScoreboardUpdate{
 		Type:    "scoreboard",
 		Players: players,
 	})
-	fmt.Println(string(update))
-	r.broadcast(update)
 }
 
 func (r *Room) broadcastWord() {
-	update, _ := json.Marshal(r.State.createWordUpdate())
-	r.broadcast(update)
+	r.broadcast(r.State.createWordUpdate())
 }
 
 var (
@@ -205,6 +225,31 @@ var (
 		},
 	}
 )
+
+func createRoom() *Room {
+	roomCode := generateUniqueRoomCode()
+	room := &Room{
+		Code:       roomCode,
+		State:      GameState{},
+		Players:    make(map[string]*Player),
+		actionChan: make(chan Action),
+		ticker:     *time.NewTicker(5 * time.Second),
+		Settings: Options{
+			MinLength: 3,
+			MaxLength: 21,
+			Interval:  5,
+		},
+	}
+
+	roomsMux.Lock()
+	rooms[roomCode] = room
+	roomsMux.Unlock()
+	fmt.Println("created room: ", roomCode)
+
+	go room.gameLoop()
+
+	return room
+}
 
 func createRoomHandler(w http.ResponseWriter, r *http.Request) {
 	room := createRoom()
@@ -229,9 +274,11 @@ func (r *Room) addPlayer(player *Player) {
 	r.Mutex.Unlock()
 }
 
-type Guess struct {
-	Guess string
-}
+const (
+	actionGuess    = "guess"
+	actionJoin     = "join"
+	actionSettings = "settings"
+)
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -265,19 +312,29 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		Content:    "",
 	}
 	room.actionChan <- action
-	guess := Guess{}
+	input := Input{}
 
 	for {
-		err = conn.ReadJSON(&guess)
+		err = conn.ReadJSON(&input)
 		if err != nil {
 			log.Println("Error reading message:", err)
 			break
 		}
-		action := Action{
-			PlayerName: playerName,
-			Type:       actionGuess,
-			Content:    guess.Guess,
+		switch input.Type {
+		case "guess":
+			action := Action{
+				PlayerName: playerName,
+				Type:       actionGuess,
+				Content:    input.Guess,
+			}
+			room.actionChan <- action
+		case "settings":
+			action := Action{
+				PlayerName: playerName,
+				Type:       actionSettings,
+				Settings:   input.Settings,
+			}
+			room.actionChan <- action
 		}
-		room.actionChan <- action
 	}
 }
