@@ -23,3 +23,28 @@
     margin-top: 10px;
     cursor: pointer;
 }
+
+.guessLog {
+    display:flex;
+    flex-direction: column-reverse;
+    overflow:auto;
+    max-height:600px;
+}
+
+.correct {
+    color: blue;
+    font-weight: 600;
+}
+
+.incorrect {
+    color: red;
+    font-weight: 600;
+}
+
+.guess {
+    font-weight: 600;
+}
+
+.game-options {
+    margin-top: 20px;
+}

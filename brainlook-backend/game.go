@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -160,9 +161,14 @@ func (r *Room) gameLoop() {
 				if len(r.Players) == 1 {
 					r.ticker.Reset(time.Duration(r.Settings.Interval) * time.Second)
 				}
+				r.Players[action.PlayerName].Conn.WriteJSON(SettingsUpdate{
+					Type:     "settings",
+					Settings: r.Settings,
+				})
 				r.Players[action.PlayerName].Conn.WriteJSON(r.State.createWordUpdate())
 				r.broadcastScoreboard()
 			case actionSettings:
+				action.Settings.Interval = int(math.Max(1, float64(action.Settings.Interval)))
 				r.Settings = action.Settings
 				r.ticker = *time.NewTicker(time.Duration(r.Settings.Interval) * time.Second)
 				log.Printf("changing tick interval to %d", r.Settings.Interval)

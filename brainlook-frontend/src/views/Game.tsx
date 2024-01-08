@@ -39,15 +39,29 @@ const PlayArea: React.FC<PlayAreaProps> = ({clue, word}) => {
     );
 }
 
+interface Guess {
+    player: string;
+    guess: string;
+    correct: boolean;
+}
+
 interface GuessLogProps {
-    guesses: string[]
+    guesses: Guess[]
 }
 
 const GuessLog: React.FC<GuessLogProps> = ({guesses}) => {
+    const guessLogRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        console.log("scroll to top");
+        if (guessLogRef.current) {
+            guessLogRef.current.scrollTo({top:-1000});
+        }
+    }, [guesses])
+
     return (
-            <div className='guessLog'>
+            <div className='guessLog' ref={guessLogRef}>
             {guesses.map((guess, idx) => (
-                <div key={idx}>{guess}</div>
+                <div key={idx}>{guess.player} {guess.correct ? <span className='correct'>correctly</span> : <span className='incorrect'>incorrectly</span>} guessed <span className="guess" > {guess.guess}</span></div>
             ))}
             </div>
     );
@@ -62,7 +76,7 @@ const Game: React.FC = () => {
     const [guess, setGuess] = useState('');
     const [players, setPlayers] = useState<Player[]>([]); // Update with actual player data
     const { roomCode } = useParams();
-    const [guessList, setGuessList] = useState<string[]>([]);
+    const [guessList, setGuessList] = useState<Guess[]>([]);
     const [wordClue, setWordClue] = useState<PlayAreaProps>({word:'', clue:''});
     const [minLength, setMinLength] = useState(3);
     const [maxLength, setMaxLength] = useState(21);
@@ -112,12 +126,15 @@ const Game: React.FC = () => {
                         setPlayers(msg['players']);
                         break;
                     case 'guess':
-                        guessList.push(`${msg.player} ${msg.correct ? 'correctly' : 'incorrectly'} guessed ${msg.guess}`);
+                        setGuessList(guessList => [...guessList, {player: msg.player, guess: msg.guess, correct: msg.correct}]);
                         break;
                     case 'word':
                         setWordClue({word: msg.displayed, clue: msg.clue});
                         break;
                     case 'settings':
+                        setInterval(msg['settings']['interval']);
+                        setMaxLength(msg['settings']['maxLength']);
+                        setMinLength(msg['settings']['minLength']);
                         break;
                     default:
                         throw new Error(`Unknown case ${msg['type']}`);
@@ -161,18 +178,20 @@ const Game: React.FC = () => {
                 </div>
                 <div className="game-right-pane">
                     <Scoreboard players={players} />
-                    <form onSubmit={handleOptionsSubmit}>
-                    <div>
-                    <label>Reveal Interval</label><input type="number" value={interval} min="1" max="30" onChange={e => setInterval(parseInt(e.target.value))} />
+                    <div className="game-options">
+                        <form onSubmit={handleOptionsSubmit}>
+                            <div>
+                                <label>Reveal Interval</label><input type="number" value={interval} min="1" max="30" onChange={e => setInterval(parseInt(e.target.value))} />
+                            </div>
+                            <div>
+                                <label>Minimum Word Length </label><input type="number" value={minLength} min="3" max="21" onChange={e => setMinLength(parseInt(e.target.value))} />
+                            </div>
+                            <div>
+                                <label>Maximum Word Length </label><input type="number" value={maxLength} min="3" max="21" onChange={e => setMaxLength(parseInt(e.target.value))} />
+                            </div>
+                            <input type="submit" value="Change Room Settings" />
+                        </form>
                     </div>
-                    <div>
-                    <label>Minimum Word Length </label><input type="number" value={minLength} min="3" max="21" onChange={e => setMinLength(parseInt(e.target.value))} />
-                    </div>
-                    <div>
-                    <label>Maximum Word Length </label><input type="number" value={maxLength} min="3" max="21" onChange={e => setMaxLength(parseInt(e.target.value))} />
-                    </div>
-                    <input type="submit" value="Change Room Settings" />
-                    </form>
                 </div>
             </div>
         </div>

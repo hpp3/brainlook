@@ -32,6 +32,7 @@ func readConfig(filename string) map[string]string {
 var config = readConfig("../config.env")
 var FRONTEND_HOST = config["FRONTEND_HOST"]
 var BACKEND_HOST = config["BACKEND_HOST"]
+var USE_SSL = config["USE_SSL"] == "true"
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -114,9 +115,10 @@ func main() {
 	r.HandleFunc("/ws/{room-code}/{player-name}", handleWebSocket)
 	r.HandleFunc("/api/join-room/{room-code}", joinRoomHandler)
 	http.Handle("/", r)
-	err := http.ListenAndServeTLS(":8080", "/etc/letsencrypt/live/brainlook.hpp3.com/fullchain.pem", "/etc/letsencrypt/live/brainlook.hpp3.com/privkey.pem", r)
-	if err != nil {
-		log.Fatalf("Could not start server: %s", err)
+	if USE_SSL {
+		log.Fatal(http.ListenAndServeTLS(":8080", "/etc/letsencrypt/live/brainlook.hpp3.com/fullchain.pem", "/etc/letsencrypt/live/brainlook.hpp3.com/privkey.pem", r))
+	} else {
+		log.Fatal(http.ListenAndServe(":8080", r))
 	}
 
 	log.Println("Server started on :8080!!!")
